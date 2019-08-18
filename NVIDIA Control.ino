@@ -16,8 +16,10 @@ WebSocketsServer webSocket = WebSocketsServer(webSocketPort);
 
 //JSON Parsing and Key Conversion
 #include <Arduino_JSON.h>
-int playerpause = 2;
-int oldplayerpause;
+//int playerpause = 2;
+//int oldplayerpause
+/* Assume media is playing to begin with */
+bool playing = true;
 uint16_t counter = 1;
 
 /*  Struct to Hold Each Element of the JsonToUSB_HID_Map */
@@ -51,9 +53,9 @@ const JSONMethodToCecType JSONMethodToCec[] = {
   {"VideoLibrary.Scan", "", 0, 0},
   {"Input.ContextMenu", "", 0, 0},
   {"Player.GetActivePlayers", "", 0, 0},
-  //Pause then play
-  //Might want o set a delay to reset the pause or stop after 30 mins
+  /* Pause - the shield does not require this, but a normal PC or perhaps other Android TV do*/
   {"Player.PlayPause", "1", 0, 0xB1},
+  /* Play */
   {"Player.PlayPause", "2", 0, 0xB0},
   {"Player.Stop", "", 0, 0xB7},
   {"Input.ExecuteAction", "play", 0, 0xB0},
@@ -289,6 +291,7 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
 
         if (strcmp(myObject["method"], "Player.GetActivePlayers") == 0) {
           webSocket.sendTXT(num, "{\"id\": 1, \"jsonrpc\": \"2.0\", \"result\": [ { \"playerid\": 1, \"type\": \"video\" } ]}");
+          return;
         } else {
           webSocket.sendTXT(num, "{\"id\":1,\"jsonrpc\":\"2.0\",\"result\":\"OK\"}");
         }
@@ -303,22 +306,20 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
         }
         if (!myObject.hasOwnProperty("method")) {
           Serial.println("JSON parse cannot find method");
-          //Need to send a response
           return;
         }
         Serial.println("Correctly parsed JSON");
-        if (strcmp(myObject["method"], "Player.GetActivePlayers") == 0) {
-          oldplayerpause = playerpause;
-          playerpause += 1;
-          if (playerpause == 3) {
-            playerpause = 1;
-          }
-          Serial.printf("Detected GetActivePlayers, switching from %d to %d\n",oldplayerpause,playerpause);
-          return;
-        } else if (strcmp(myObject["method"], "Player.PlayPause") == 0) {
-          char buffer[1];
-          itoa(playerpause, buffer, 10);
-          processUSBHID(myObject["method"], buffer);
+        if (strcmp(myObject["method"], "Player.PlayPause") == 0) {
+          /* Leaving this here, it may be essential for a PC or another Android TV Device 
+          if (playing==true) {
+            processUSBHID(myObject["method"], "1");
+            playing = false;
+          } else {
+            processUSBHID(myObject["method"], "2");            
+            playing = true;
+          }          
+          */
+          processUSBHID(myObject["method"], "2");            
         } else if (strcmp(myObject["method"], "Input.ExecuteAction") == 0) {
           if (!((myObject.hasOwnProperty("params")) && (myObject["params"].hasOwnProperty("action")))) {
             Serial.println("JSON parse cannot find params or anction and is required for Input.ExecuteAction");
@@ -329,6 +330,10 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t length
           processUSBHID(myObject["method"], "");
         }
         Serial.printf("Function time was %d\n",millis() - startTime);
+        if (strcmp(myObject["method"], "Player.Stop")==0) {
+          /* As the current paying media is stopped, assuming next media state is playing */
+          playing = true;
+        }
         break;
       }
     case WStype_BIN:
