@@ -2,6 +2,8 @@
 
 Remotely control an NVIDIA shield via Bluetooth from HTTP/Websockets 
 
+**SUPERSEDED BY NVIDIAControlDevice2**
+
 This software runs on an ESP32 making it into a virtual keyboard running a Kodi style websocket server, this allows clients to connect via any of the standard Kodi remote control tools, such as:
 * Kassi (Chrome)
 * Yatse/Kore (Android)
